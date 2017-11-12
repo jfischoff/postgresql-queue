@@ -195,7 +195,6 @@ withPayloadDB schemaName retryCount f
       FROM payloads
       WHERE state='enqueued'
       ORDER BY created_at ASC
-             , attempts   ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
     |]

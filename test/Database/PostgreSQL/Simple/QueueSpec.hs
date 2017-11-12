@@ -14,6 +14,7 @@ import           Test.Hspec                     (Spec, hspec, it)
 import           Test.Hspec.Expectations.Lifted
 import           Test.Hspec.DB
 import           Control.Monad.Catch
+import           Control.Monad.IO.Class
 import           Data.List.Split
 import           Data.Either
 
@@ -77,6 +78,27 @@ spec = describeDB (migrate schemaName) "Database.Queue" $ do
         )
 
       all isLeft xs `shouldBe` True
+
+    runDB conn $ getCountDB schemaName `shouldReturn` 0
+
+  it "selects the oldest first" $ \conn -> do
+    runDB conn $ do
+      payloadId0 <- enqueueDB schemaName $ String "Hello"
+      liftIO $ threadDelay 1000000
+
+      payloadId1 <- enqueueDB schemaName $ String "Hi"
+
+      getCountDB schemaName `shouldReturn` 2
+
+      either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+        pId `shouldBe` payloadId0
+        pValue `shouldBe` String "Hello"
+        )
+
+      either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+        pId `shouldBe` payloadId1
+        pValue `shouldBe` String "Hi"
+        )
 
     runDB conn $ getCountDB schemaName `shouldReturn` 0
 

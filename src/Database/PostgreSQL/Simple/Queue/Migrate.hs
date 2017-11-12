@@ -65,9 +65,7 @@ migrate schemaName conn = void $ execute_ conn $
 
   CREATE INDEX active_state_idx ON payloads (state)
     WHERE (state = 'enqueued');
-  CREATE INDEX active_attempts_idx ON payloads (attempts)
-    WHERE (state = 'enqueued');
-  CREATE INDEX active_created_at_idx ON payloads (created_at)
+  CREATE INDEX active_created_at_attempts_idx ON payloads (created_at, attempts)
     WHERE (state = 'enqueued');
 
   CREATE TRIGGER payloads_modified

@@ -37,7 +37,6 @@ resolver: nightly-2017-11-10
 # will not be run. This is useful for tweaking upstream packages.
 packages:
 - '.'
-- 'pg-transact-hspec'
 
 # Dependency packages to be pulled from upstream that are not in the resolver
 # (e.g., acme-missiles-0.3)

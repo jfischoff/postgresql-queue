@@ -174,13 +174,19 @@ retryDB schemaName value attempts = enqueueWithDB schemaName value $ attempts + 
 
 {-|
 
-Attempt to get a payload and send it. If the function passed in throws an exception
+Attempt to get a payload and process it. If the function passed in throws an exception
 return it on the left side of the `Either`. Re-add the payload up to some passed in
-maximum. Return `Nothing` is the `payloads` table is empty otherwise the result
-of the payload action.
+maximum. Return `Nothing` is the `payloads` table is empty otherwise the result is an `a`
+from the payload ingesting function.
 
 -}
-withPayloadDB :: String -> Int -> (Payload -> IO a) -> DB (Either SomeException (Maybe a))
+withPayloadDB :: String
+              -- ^ schema
+              -> Int
+              -- ^ retry count
+              -> (Payload -> IO a)
+              -- ^ payload processing function
+              -> DB (Either SomeException (Maybe a))
 withPayloadDB schemaName retryCount f
   = query_
     ( withSchema schemaName
@@ -188,8 +194,8 @@ withPayloadDB schemaName retryCount f
       SELECT id, value, state, attempts, created_at, modified_at
       FROM payloads
       WHERE state='enqueued'
-      ORDER BY modified_at ASC
-             , attempts    ASC
+      ORDER BY created_at ASC
+             , attempts   ASC
       FOR UPDATE SKIP LOCKED
       LIMIT 1
     |]

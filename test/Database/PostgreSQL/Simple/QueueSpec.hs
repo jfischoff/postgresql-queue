@@ -119,10 +119,6 @@ spec = describeDB (migrate schemaName) "Database.Queue" $ do
 
       when (lastCount < elementCount) next
 
-    -- Fork a hundred threads and enqueue an index
-    -- forM_ [0 .. elementCount - 1] $ \i -> forkIO $ void $ withPool' $ \c ->
-    --  enqueue schemaName c $ toJSON i
-
     forM_ (chunksOf (elementCount `div` 40) expected) $ \xs -> forkIO $ void $ withPool' $ \c ->
        forM_ xs $ \i -> enqueue schemaName c $ toJSON i
 

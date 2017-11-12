@@ -15,6 +15,7 @@ import           Test.Hspec.Expectations.Lifted
 import           Test.Hspec.DB
 import           Control.Monad.Catch
 import           Data.List.Split
+import           Data.Either
 
 
 main :: IO ()
@@ -45,6 +46,37 @@ spec = describeDB (migrate schemaName) "Database.Queue" $ do
       -- read committed but still 0. I don't depend on this but I want to see if it
       -- stays like this.
       getCountDB schemaName `shouldReturn` 0
+
+    runDB conn $ getCountDB schemaName `shouldReturn` 0
+
+  it "enqueuesDB/withPayloadDB/retries" $ \conn -> do
+    runDB conn $ do
+      void $ enqueueDB schemaName $ String "Hello"
+      getCountDB schemaName `shouldReturn` 1
+
+      xs <- replicateM 7 $ withPayloadDB schemaName 8 (\(Payload {..}) ->
+          throwM $ userError "not enough tries"
+        )
+
+      all isLeft xs `shouldBe` True
+
+      either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+        pAttempts `shouldBe` 7
+        pValue `shouldBe` String "Hello"
+        )
+
+    runDB conn $ getCountDB schemaName `shouldReturn` 0
+
+  it "enqueuesDB/withPayloadDB/timesout" $ \conn -> do
+    runDB conn $ do
+      void $ enqueueDB schemaName $ String "Hello"
+      getCountDB schemaName `shouldReturn` 1
+
+      xs <- replicateM 2 $ withPayloadDB schemaName 1 (\(Payload {..}) ->
+          throwM $ userError "not enough tries"
+        )
+
+      all isLeft xs `shouldBe` True
 
     runDB conn $ getCountDB schemaName `shouldReturn` 0
 

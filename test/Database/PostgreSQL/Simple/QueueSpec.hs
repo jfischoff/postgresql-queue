@@ -50,7 +50,7 @@ spec = describeDB (migrate schemaName) "Database.Queue" $ do
 
   it "enqueues and dequeues concurrently withPayload" $ \testDB -> do
     let withPool' = withPool testDB
-        elementCount = 10000 :: Int
+        elementCount = 1000 :: Int
         expected = [0 .. elementCount - 1]
 
     ref <- newTVarIO []

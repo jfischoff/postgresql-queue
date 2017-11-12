@@ -36,6 +36,10 @@ import           Data.String
  $$
  language 'plpgsql';
  @
+
+#  CREATE TRIGGER payloads_modified
+#  BEFORE UPDATE ON payloads
+#  FOR EACH ROW EXECUTE PROCEDURE update_row_modified_function();
 -}
 migrate :: String -> Connection -> IO ()
 migrate schemaName conn = void $ execute_ conn $
@@ -68,8 +72,6 @@ migrate schemaName conn = void $ execute_ conn $
   CREATE INDEX active_created_at_attempts_idx ON payloads (created_at, attempts)
     WHERE (state = 'enqueued');
 
-  CREATE TRIGGER payloads_modified
-  BEFORE UPDATE ON payloads
-  FOR EACH ROW EXECUTE PROCEDURE update_row_modified_function();
+
 
   |]

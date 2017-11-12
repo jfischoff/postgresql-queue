@@ -74,6 +74,7 @@ dependencies:
 - pg-transact
 - aeson
 - bytestring
+- stm
 
 library:
   source-dirs: src
@@ -97,3 +98,4 @@ tests:
     - hspec-expectations-lifted
     - hspec-pg-transact
     - async
+    - split

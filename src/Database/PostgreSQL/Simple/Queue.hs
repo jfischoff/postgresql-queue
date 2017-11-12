@@ -157,7 +157,7 @@ notifyName schemaName = fromString $ schemaName <> "_enqueue"
  @
 -}
 enqueueDB :: String -> Value -> DB PayloadId
-enqueueDB schemaName value = retryDB schemaName value 0
+enqueueDB schemaName value = enqueueWithDB schemaName value 0
 
 enqueueWithDB :: String -> Value -> Int -> DB PayloadId
 enqueueWithDB schemaName value attempts =
@@ -167,7 +167,7 @@ enqueueWithDB schemaName value attempts =
     VALUES (?, ?)
     RETURNING id;|]
     )
-    $ (attempts + 1, value)
+    $ (attempts, value)
 
 retryDB :: String -> Value -> Int -> DB PayloadId
 retryDB schemaName value attempts = enqueueWithDB schemaName value $ attempts + 1

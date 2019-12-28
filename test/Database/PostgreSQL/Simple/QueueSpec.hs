@@ -176,7 +176,6 @@ spec = describe "Database.Queue" $ parallel $ do
 
       getCountDB schemaName `shouldReturn` 0
 
-  aroundAll withSetup $ describe "basic" $ do
     it "enqueues and dequeues concurrently withPayload" $ \testDB -> do
       let withPool' = flip withConnection testDB
           elementCount = 1000 :: Int

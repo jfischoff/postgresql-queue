@@ -64,25 +64,6 @@ withConn db f = do
 
 withSetup :: (Pool Connection -> IO ()) -> IO ()
 withSetup f = either throwIO pure <=< withDbCache $ \dbCache -> do
-{-
-  let opts = [ ("log_min_duration_statement", "9ms")
-             , ("shared_preload_libraries", "'auto_explain'")
-             , ("session_preload_libraries", "'auto_explain'")
-             , ("auto_explain.log_analyze", "1")
-             , ("auto_explain.log_buffers", "1")
-             , ("auto_explain.log_timing", "1")
-             , ("auto_explain.log_triggers", "1")
-             , ("auto_explain.log_verbose", "1")
-             , ("auto_explain.log_min_duration", "10ms")
-             , ("auto_explain.log_nested_statements", "1")
-             , ("auto_explain.sample_rate", "1")
-             , ("auto_explain.log_level", "WARNING")
-             , ("auto_explain.log_verbose", "on")
-             , ("log_connections", "off")
-             , ("log_disconnections", "off")
-             , ("auto_explain.log_format", "json")
-             ]
--}
   migratedConfig <- either throwIO pure =<<
       cacheAction
         (("~/.tmp-postgres/" <>) . BSC.unpack . Base64.encode . hash

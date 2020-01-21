@@ -33,9 +33,9 @@ migrationQueryString schemaName =
 \  , state state_t NOT NULL DEFAULT 'enqueued'\
 \  , created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()\
 \  , modified_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp()\
-\  );\
+\  ) WITH (fillfactor = 100);\
 \ \
-\  CREATE INDEX IF NOT EXISTS active_modified_at_idx ON payloads (modified_at)\
+\  CREATE INDEX IF NOT EXISTS active_modified_at_idx ON payloads USING btree (modified_at) \
 \    WHERE (state = 'enqueued');\
 \ \
 \  CREATE INDEX IF NOT EXISTS active_created_at_idx ON payloads (created_at)\

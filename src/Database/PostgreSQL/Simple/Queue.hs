@@ -181,10 +181,10 @@ dequeueDB schemaName = fmap listToMaybe $ query_ $ withSchema schemaName
   [sql| UPDATE payloads
         SET state='dequeued'
         WHERE id in
-          ( SELECT id
-            FROM payloads
-            WHERE state='enqueued'
-            ORDER BY modified_at ASC
+          ( SELECT p1.id
+            FROM payloads AS p1
+            WHERE p1.state='enqueued'
+            ORDER BY p1.modified_at ASC
             FOR UPDATE SKIP LOCKED
             LIMIT 1
           )

@@ -146,6 +146,9 @@ instance FromField State where
 notifyName :: IsString s => s
 notifyName = fromString "postgresql_simple_enqueue"
 
+{-|
+Prepare all the statements.
+-}
 setupDB :: DB ()
 setupDB = void $ execute_
   [sql|
@@ -248,7 +251,9 @@ getCountDB = fmap (fromOnly . head) $ query_ "EXECUTE get_count"
 -------------------------------------------------------------------------------
 ---  IO API
 -------------------------------------------------------------------------------
-
+{-|
+Prepare all the statements.
+-}
 setup :: Connection -> IO ()
 setup conn = runDBT setupDB ReadCommitted conn
 

@@ -54,9 +54,6 @@ aroundAll withFunc specWith = do
 
   beforeAll theStart $ afterAll theStop $ specWith
 
-schemaName :: String
-schemaName = "complicated_name"
-
 withConn :: Temp.DB -> (Connection -> IO a) -> IO a
 withConn db f = do
   let connStr = toConnectionString db
@@ -85,7 +82,6 @@ withReadCommitted :: T.DB () -> Pool Connection -> IO ()
 withReadCommitted action pool = E.handle (\T.Abort -> pure ()) $ withResource pool $
   T.runDBT (T.abort action) ReadCommitted
 
-
 runDB :: Connection -> T.DB a -> IO a
 runDB conn action = T.runDBT action ReadCommitted conn
 
@@ -93,69 +89,69 @@ spec :: Spec
 spec = describe "Database.Queue" $ parallel $ do
   sequential $ aroundAll withSetup $ describe "basic" $ do
     it "is okay to migrate multiple times" $ withConnection $
-      liftIO . migrate schemaName
+      liftIO . migrate
 
     it "empty locks nothing" $ withReadCommitted $
-      (either throwM return =<< (withPayloadDB schemaName 8 return))
+      (either throwM return =<< (withPayloadDB 8 return))
         `shouldReturn` Nothing
     it "empty gives count 0" $ withReadCommitted $
-      getCountDB schemaName `shouldReturn` 0
+      getCountDB `shouldReturn` 0
     it "enqueuesDB/withPayloadDB" $ withReadCommitted $ do
-        payloadId <- enqueueDB schemaName $ String "Hello"
-        getCountDB schemaName `shouldReturn` 1
+        payloadId <- enqueueDB $ String "Hello"
+        getCountDB `shouldReturn` 1
 
-        either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+        either throwM return =<< withPayloadDB 8 (\(Payload {..}) -> do
           pId `shouldBe` payloadId
           pValue `shouldBe` String "Hello"
           )
 
-        getCountDB schemaName `shouldReturn` 0
+        getCountDB `shouldReturn` 0
 
     it "enqueuesDB/withPayloadDB/retries" $ withReadCommitted $ do
-      void $ enqueueDB schemaName $ String "Hello"
-      getCountDB schemaName `shouldReturn` 1
+      void $ enqueueDB $ String "Hello"
+      getCountDB `shouldReturn` 1
 
-      xs <- replicateM 7 $ withPayloadDB schemaName 8 (\(Payload {..}) ->
+      xs <- replicateM 7 $ withPayloadDB 8 (\(Payload {..}) ->
           throwM $ userError "not enough tries"
         )
 
       all isLeft xs `shouldBe` True
 
-      either throwM (const $ pure ()) =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+      either throwM (const $ pure ()) =<< withPayloadDB 8 (\(Payload {..}) -> do
         pAttempts `shouldBe` 7
         pValue `shouldBe` String "Hello"
         )
     it "enqueuesDB/withPayloadDB/timesout" $ withReadCommitted $  do
-      void $ enqueueDB schemaName $ String "Hello"
-      getCountDB schemaName `shouldReturn` 1
+      void $ enqueueDB $ String "Hello"
+      getCountDB `shouldReturn` 1
 
-      xs <- replicateM 2 $ withPayloadDB schemaName 1 (\(Payload {..}) ->
+      xs <- replicateM 2 $ withPayloadDB 1 (\(Payload {..}) ->
           throwM $ userError "not enough tries"
         )
 
       all isLeft xs `shouldBe` True
 
-      getCountDB schemaName `shouldReturn` 0
+      getCountDB `shouldReturn` 0
 
     it "selects the oldest first" $ withReadCommitted $ do
-      payloadId0 <- enqueueDB schemaName $ String "Hello"
+      payloadId0 <- enqueueDB $ String "Hello"
       liftIO $ threadDelay 100
 
-      payloadId1 <- enqueueDB schemaName $ String "Hi"
+      payloadId1 <- enqueueDB $ String "Hi"
 
-      getCountDB schemaName `shouldReturn` 2
+      getCountDB `shouldReturn` 2
 
-      either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+      either throwM return =<< withPayloadDB 8 (\(Payload {..}) -> do
         pId `shouldBe` payloadId0
         pValue `shouldBe` String "Hello"
         )
 
-      either throwM return =<< withPayloadDB schemaName 8 (\(Payload {..}) -> do
+      either throwM return =<< withPayloadDB 8 (\(Payload {..}) -> do
         pId `shouldBe` payloadId1
         pValue `shouldBe` String "Hi"
         )
 
-      getCountDB schemaName `shouldReturn` 0
+      getCountDB `shouldReturn` 0
 
     it "enqueues and dequeues concurrently withPayload" $ \testDB -> do
       let withPool' = flip withConnection testDB
@@ -165,7 +161,7 @@ spec = describe "Database.Queue" $ parallel $ do
       ref <- newTVarIO []
 
       loopThreads <- replicateM 35 $ async $ withPool' $ \c -> fix $ \next -> do
-        lastCount <- either throwM return <=< withPayload schemaName c 0 $ \(Payload {..}) -> do
+        lastCount <- either throwM return <=< withPayload c 0 $ \(Payload {..}) -> do
           atomically $ do
             xs <- readTVar ref
             writeTVar ref $ pValue : xs
@@ -174,7 +170,7 @@ spec = describe "Database.Queue" $ parallel $ do
         when (lastCount < elementCount) next
 
       forM_ (chunksOf (elementCount `div` 11) expected) $ \xs -> forkIO $ void $ withPool' $ \c ->
-         forM_ xs $ \i -> enqueue schemaName c $ toJSON i
+         forM_ xs $ \i -> enqueue c $ toJSON i
 
       waitAnyCancel loopThreads
       xs <- atomically $ readTVar ref
@@ -190,7 +186,7 @@ spec = describe "Database.Queue" $ parallel $ do
       ref <- newTVarIO []
 
       loopThreads <- replicateM 35 $ async $ withPool' $ \c -> fix $ \next -> do
-        Payload {..} <- dequeue schemaName c
+        Payload {..} <- dequeue c
         lastCount <- atomically $ do
           xs <- readTVar ref
           writeTVar ref $ pValue : xs
@@ -199,7 +195,7 @@ spec = describe "Database.Queue" $ parallel $ do
         when (lastCount < elementCount) next
 
       forM_ (chunksOf (elementCount `div` 11) expected) $ \xs -> forkIO $ void $ withPool' $ \c ->
-         forM_ xs $ \i -> enqueue schemaName c $ toJSON i
+         forM_ xs $ \i -> enqueue c $ toJSON i
 
       waitAnyCancel loopThreads
       xs <- atomically $ readTVar ref

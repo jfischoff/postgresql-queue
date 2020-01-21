@@ -69,7 +69,11 @@ withSetup f = either throwIO pure <=< withDbCache $ \dbCache -> do
         (verboseConfig <> cacheConfig dbCache)
   withConfig migratedConfig $ \db -> do
     f =<< createPool
-      (connectPostgreSQL $ toConnectionString db)
+      (do
+        c <- connectPostgreSQL $ toConnectionString db
+        runDB c setup
+        pure c
+      )
       close
       2
       60

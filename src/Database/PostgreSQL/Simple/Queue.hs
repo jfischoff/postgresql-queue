@@ -53,6 +53,7 @@ module Database.PostgreSQL.Simple.Queue
   , State (..)
   , Payload (..)
   -- * DB API
+  , setup
   , enqueueDB
   , dequeueDB
   , withPayloadDB
@@ -145,6 +146,29 @@ instance FromField State where
 notifyName :: IsString s => s
 notifyName = fromString "postgresql_simple_enqueue"
 
+setup :: DB ()
+setup = void $ execute_
+  [sql|
+  PREPARE enqueue (int, jsonb) AS
+    INSERT INTO payloads (attempts, value)
+    VALUES ($1, $2)
+    RETURNING id;
+
+  PREPARE dequeue AS
+    UPDATE payloads
+    SET state='dequeued'
+    WHERE id in
+      ( SELECT p1.id
+        FROM payloads AS p1
+        WHERE p1.state='enqueued'
+        ORDER BY p1.modified_at ASC
+        FOR UPDATE SKIP LOCKED
+        LIMIT 1
+      )
+    RETURNING id, value, state, attempts, created_at, modified_at;
+
+  |]
+
 {-| Enqueue a new JSON value into the queue. This particularly function
     can be composed as part of a larger database transaction. For instance,
     a single transaction could create a user and enqueue a email message.
@@ -161,31 +185,14 @@ enqueueDB value = enqueueWithDB value 0
 
 enqueueWithDB :: Value -> Int -> DB PayloadId
 enqueueWithDB value attempts =
-  fmap head $ query ([sql|
-    NOTIFY |] <> " " <> notifyName <> ";" <> [sql|
-    INSERT INTO payloads (attempts, value)
-    VALUES (?, ?)
-    RETURNING id;|])
-    (attempts, value)
+  fmap head $ query "NOTIFY postgresql_simple_enqueue; EXECUTE enqueue(?, ?)" (attempts, value)
 
 retryDB :: Value -> Int -> DB PayloadId
 retryDB value attempts = enqueueWithDB value $ attempts + 1
 
 -- | Transition a 'Payload' to the 'Dequeued' state.
 dequeueDB :: DB (Maybe Payload)
-dequeueDB = fmap listToMaybe $ query_
-  [sql| UPDATE payloads
-        SET state='dequeued'
-        WHERE id in
-          ( SELECT p1.id
-            FROM payloads AS p1
-            WHERE p1.state='enqueued'
-            ORDER BY p1.modified_at ASC
-            FOR UPDATE SKIP LOCKED
-            LIMIT 1
-          )
-        RETURNING id, value, state, attempts, created_at, modified_at
-  |]
+dequeueDB = fmap listToMaybe $ query_ "EXECUTE dequeue"
 
 {-|
 

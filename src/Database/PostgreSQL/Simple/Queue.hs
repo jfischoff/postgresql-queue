@@ -146,8 +146,8 @@ instance FromField State where
 notifyName :: IsString s => s
 notifyName = fromString "postgresql_simple_enqueue"
 
-setup :: DB ()
-setup = void $ execute_
+setupDB :: DB ()
+setupDB = void $ execute_
   [sql|
   PREPARE enqueue (int, jsonb) AS
     INSERT INTO payloads (attempts, value)
@@ -167,6 +167,21 @@ setup = void $ execute_
       )
     RETURNING id, value, state, attempts, created_at, modified_at;
 
+  PREPARE get_enqueue AS
+    SELECT id, value, state, attempts, created_at, modified_at
+    FROM payloads
+    WHERE state='enqueued'
+    ORDER BY modified_at ASC
+    FOR UPDATE SKIP LOCKED
+    LIMIT 1;
+
+  PREPARE update_state (int8) AS
+    UPDATE payloads SET state='dequeued' WHERE id = $1;
+
+  PREPARE get_count AS
+    SELECT count(*)
+    FROM payloads
+    WHERE state='enqueued';
   |]
 
 {-| Enqueue a new JSON value into the queue. This particularly function
@@ -208,19 +223,11 @@ withPayloadDB :: Int
               -- ^ payload processing function
               -> DB (Either SomeException (Maybe a))
 withPayloadDB retryCount f
-  = query_
-    [sql|
-      SELECT id, value, state, attempts, created_at, modified_at
-      FROM payloads
-      WHERE state='enqueued'
-      ORDER BY modified_at ASC
-      FOR UPDATE SKIP LOCKED
-      LIMIT 1
-    |]
+  = query_ "EXECUTE get_enqueue"
  >>= \case
     [] -> return $ return Nothing
     [payload@Payload {..}] -> do
-      execute [sql| UPDATE payloads SET state='dequeued' WHERE id = ? |] pId
+      execute "EXECUTE update_state(?)" pId
 
       -- Retry on failure up to retryCount
       handle (\e -> when (pAttempts < retryCount)
@@ -237,14 +244,14 @@ withPayloadDB retryCount f
 
 -- | Get the number of rows in the 'Enqueued' state.
 getCountDB :: DB Int64
-getCountDB = fmap (fromOnly . head) $ query_
-  [sql| SELECT count(*)
-        FROM payloads
-        WHERE state='enqueued'
-  |]
+getCountDB = fmap (fromOnly . head) $ query_ "EXECUTE get_count"
 -------------------------------------------------------------------------------
 ---  IO API
 -------------------------------------------------------------------------------
+
+setup :: Connection -> IO ()
+setup conn = runDBT setupDB ReadCommitted conn
+
 {-| Enqueue a new JSON value into the queue. See 'enqueueDB' for a version
     which can be composed with other queries in a single transaction.
 -}

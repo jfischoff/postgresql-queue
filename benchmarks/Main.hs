@@ -37,7 +37,12 @@ withSetup f = do
     withConfig migratedConfig $ \db -> do
       print $ toConnectionString db
 
-      f =<< createPool (connectPostgreSQL $ toConnectionString db) close 2 60 49
+      f =<< createPool
+              (do
+                c <- connectPostgreSQL $ toConnectionString db
+                setup c
+                pure c
+              ) close 2 60 49
 
 payload :: Value
 payload = toJSON 'a'

@@ -71,7 +71,7 @@ withSetup f = either throwIO pure <=< withDbCache $ \dbCache -> do
     f =<< createPool
       (do
         c <- connectPostgreSQL $ toConnectionString db
-        runDB c setup
+        setup c
         pure c
       )
       close

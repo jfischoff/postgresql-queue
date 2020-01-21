@@ -143,7 +143,7 @@ instance FromField State where
 ---  DB API
 -------------------------------------------------------------------------------
 notifyName :: IsString s => s
-notifyName schemaName = fromString "postgresql_simple_enqueue"
+notifyName = fromString "postgresql_simple_enqueue"
 
 {-| Enqueue a new JSON value into the queue. This particularly function
     can be composed as part of a larger database transaction. For instance,
@@ -161,11 +161,11 @@ enqueueDB value = enqueueWithDB value 0
 
 enqueueWithDB :: Value -> Int -> DB PayloadId
 enqueueWithDB value attempts =
-  fmap head $ query [sql|
+  fmap head $ query ([sql|
     NOTIFY |] <> " " <> notifyName <> ";" <> [sql|
     INSERT INTO payloads (attempts, value)
     VALUES (?, ?)
-    RETURNING id;|]
+    RETURNING id;|])
     (attempts, value)
 
 retryDB :: Value -> Int -> DB PayloadId
@@ -217,7 +217,7 @@ withPayloadDB retryCount f
 
       -- Retry on failure up to retryCount
       handle (\e -> when (pAttempts < retryCount)
-                         (void $ retryDB schemaName pValue pAttempts)
+                         (void $ retryDB pValue pAttempts)
                  >> return (Left e)
              )
              $ Right . Just <$> liftIO (f payload)

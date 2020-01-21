@@ -64,8 +64,8 @@ withSetup f = either throwIO pure <=< withDbCache $ \dbCache -> do
   migratedConfig <- either throwIO pure =<<
       cacheAction
         (("~/.tmp-postgres/" <>) . BSC.unpack . Base64.encode . hash
-          . BSC.pack $ migrationQueryString schemaName)
-        (flip withConn (migrate schemaName))
+          $ BSC.pack migrationQueryString)
+        (flip withConn migrate)
         (verboseConfig <> cacheConfig dbCache)
   withConfig migratedConfig $ \db -> do
     f =<< createPool

@@ -18,8 +18,6 @@ import           Control.Monad (replicateM, forever, void)
 
 -- TODO need to make sure the number of producers and consumers does not go over the number of connections
 
-schemaName :: String
-schemaName = "public"
 
 withConn :: DB -> (Connection -> IO a) -> IO a
 withConn db f = do
@@ -35,7 +33,7 @@ withSetup f = do
     --let combinedConfig = autoExplainConfig 15 <> cacheConfig dbCache
     let combinedConfig = defaultConfig <> cacheConfig dbCache
     migratedConfig <- throwE $ cacheAction (("~/.tmp-postgres/" <>) . BSC.unpack . Base64.encode . hash
-        . BSC.pack $ migrationQueryString schemaName) (flip withConn (migrate schemaName)) combinedConfig
+        $ BSC.pack migrationQueryString) (flip withConn migrate) combinedConfig
     withConfig migratedConfig $ \db -> do
       print $ toConnectionString db
 
@@ -61,8 +59,8 @@ main = do
   flip finally printCounters $ withSetup $ \pool -> do
     -- enqueue the enqueueCount + dequeueCount
     let totalEnqueueCount = initialDequeueCount + initialEnqueueCount
-        enqueueAction = void $ withResource pool $ \conn -> enqueue schemaName conn payload
-        dequeueAction = void $ withResource pool $ dequeue schemaName
+        enqueueAction = void $ withResource pool $ \conn -> enqueue conn payload
+        dequeueAction = void $ withResource pool $ dequeue
 
     replicateConcurrently_ totalEnqueueCount enqueueAction
     replicateConcurrently_ initialDequeueCount dequeueAction
